@@ -1,0 +1,48 @@
+{
+    "name": "gtstudio/magento-boost",
+    "description": "AI-powered development tools for Magento 2 — interactive installer, MCP server via n98-magerun2, and per-project guidelines for Claude Code, Codex, Cursor, Copilot, Gemini and Junie.",
+    "type": "magento2-module",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "GtStudio",
+            "email": "gabrielt.gts@gmail.com",
+            "homepage": "https://github.com/gtstudio"
+        }
+    ],
+    "keywords": [
+        "magento2",
+        "magento",
+        "ai",
+        "mcp",
+        "claude",
+        "claude-code",
+        "codex",
+        "cursor",
+        "developer-tools",
+        "boost"
+    ],
+    "homepage": "https://github.com/gtstudio/magento-boost",
+    "require": {
+        "php": "^8.1",
+        "magento/framework": "*",
+        "symfony/process": "^6.0 || ^7.0"
+    },
+    "suggest": {
+        "n98/magerun2-dist": "^9.4 — required for the MCP server (mcp:server:start). Provides all Magento CLI tools to AI agents."
+    },
+    "autoload": {
+        "files": [
+            "registration.php"
+        ],
+        "psr-4": {
+            "Gtstudio\\MagentoBoost\\": ""
+        }
+    },
+    "extra": {
+        "magento-module-name": "Gtstudio_MagentoBoost"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
