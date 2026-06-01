@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Gtstudio\MagentoBoost\Install;
 
-use InvalidArgumentException;
-
 class BoostConfig
 {
     private string $path;
@@ -49,6 +47,12 @@ class BoostConfig
     public function exists(): bool
     {
         return file_exists($this->path);
+    }
+
+    /** @return string[] Package names excluded from extension merging */
+    public function getExtensionsExcluded(): array
+    {
+        return $this->get('extensions', [])['excluded'] ?? [];
     }
 
     public function getPath(): string

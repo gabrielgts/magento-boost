@@ -12,10 +12,12 @@ use Gtstudio\MagentoBoost\Install\Agents\GeminiAgent;
 use Gtstudio\MagentoBoost\Install\Agents\JunieAgent;
 use Gtstudio\MagentoBoost\Install\Agents\VsCodeAgent;
 use Gtstudio\MagentoBoost\Install\BoostConfig;
+use Gtstudio\MagentoBoost\Install\Extension\ExtensionLoader;
+use Gtstudio\MagentoBoost\Install\GuidelineComposer;
 use Gtstudio\MagentoBoost\Install\ModuleInventory;
+use Gtstudio\MagentoBoost\Install\SkillComposer;
 use Gtstudio\MagentoBoost\Install\ThemeDetector;
 use Gtstudio\MagentoBoost\Install\Writers\GuidelineWriter;
-use Gtstudio\MagentoBoost\Install\Writers\SkillWriter;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -50,21 +52,30 @@ class UpdateCommand extends Command
             return self::FAILURE;
         }
 
-        $agentNames       = $config->get('agents', []);
-        $guidelinePacks   = $config->get('guidelines', ['core']);
-        $skillPacks       = $config->get('skills', []);
-        $mcpConfig        = $config->get('mcp', []);
-        $registerMcp      = $mcpConfig['enabled'] ?? false;
-        $magerunBin       = $mcpConfig['binary'] ?? null;
+        $agentNames     = $config->get('agents', []);
+        $guidelinePacks = $config->get('guidelines', ['core']);
+        $skillPacks     = $config->get('skills', []);
+        $mcpConfig      = $config->get('mcp', []);
+        $registerMcp    = $mcpConfig['enabled'] ?? false;
+        $magerunBin     = $mcpConfig['binary'] ?? null;
+        $excluded       = $config->get('extensions', [])['excluded'] ?? [];
 
-        // Re-detect theme (may have changed since install)
+        // Re-detect theme and extensions — both may change between installs
         $themeInfo        = (new ThemeDetector($projectRoot))->detect();
-        $guidelineContent = $this->composeGuidelines($resourcesDir, $guidelinePacks, $themeInfo->guidelineFile());
+        $allExtensions    = (new ExtensionLoader())->load($projectRoot);
+        $activeExtensions = (new ExtensionLoader())->filter($allExtensions, $excluded);
+
+        $guidelineContent  = (new GuidelineComposer())->compose(
+            $resourcesDir,
+            $guidelinePacks,
+            $themeInfo->guidelineFile(),
+            $activeExtensions
+        );
         $guidelineContent .= $this->composeModuleInventory($projectRoot);
 
         foreach ($agentNames as $agentName) {
             $class = self::AGENT_MAP[$agentName] ?? null;
-            if (!$class) {
+            if ($class === null) {
                 $output->writeln('<comment>Unknown agent: ' . $agentName . ' — skipping</comment>');
                 continue;
             }
@@ -85,28 +96,15 @@ class UpdateCommand extends Command
             (new GuidelineWriter())->writeShared($projectRoot, $resourcesDir, $guidelinePacks);
         }
 
-        if ($skillPacks) {
-            (new SkillWriter())->write($projectRoot, $resourcesDir, $skillPacks);
+        (new SkillComposer())->write($projectRoot, $resourcesDir, $skillPacks, $activeExtensions);
+
+        if ($activeExtensions) {
+            $names = implode(', ', array_map(fn($ext) => $ext->name, $activeExtensions));
+            $output->writeln('  Extensions merged: <info>' . $names . '</info>');
         }
 
         $output->writeln('<info>✓ magento-boost updated.</info>');
         return self::SUCCESS;
-    }
-
-    private function composeGuidelines(string $resourcesDir, array $packs, string $themeGuidelineFile): string
-    {
-        $parts = [];
-        foreach ($packs as $pack) {
-            $file = rtrim($resourcesDir, '/') . '/guidelines/' . $pack . '.md';
-            if (file_exists($file)) {
-                $parts[] = file_get_contents($file);
-            }
-        }
-        $themeFile = rtrim($resourcesDir, '/') . '/guidelines/' . $themeGuidelineFile;
-        if (file_exists($themeFile)) {
-            $parts[] = file_get_contents($themeFile);
-        }
-        return implode(PHP_EOL . PHP_EOL, $parts);
     }
 
     private function composeModuleInventory(string $projectRoot): string
